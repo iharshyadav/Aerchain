@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String?
+  email     String   @unique
+  createdAt DateTime @default(now())
+  username  String   @unique
+  password  String
+  avatar    String?
+
+  rfps      RFP[]    @relation("UserRfps")
+}
+
+model RFP {
+  id              String      @id @default(uuid()) @db.Uuid
+  title           String
+  descriptionRaw  String      @db.Text
+  // structured JSON representation of requirements (items, specs, metadata)
+  requirements    Json
+  budgetUsd       Decimal?    @db.Decimal(18, 2)
+  deliveryDays    Int?
+  paymentTerms    String?
+  warrantyMonths  Int?
+  referenceToken  String      @unique // used for reply-tracking in emails (e.g., rfp+{token}@)
+  createdById     String      @db.Uuid
+  createdBy       User        @relation(fields: [createdById], references: [id], name: "UserRfps")
+  createdAt       DateTime    @default(now())
+
+  sentRfps        SentRFP[]
+  proposals       Proposal[]
+  comparisons     Comparison[]
+
+  @@index([createdById])
+  @@index([referenceToken])
+}
+
+model Vendor {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  contactEmail String  @db.VarChar(255)
+  phone       String? 
+  notes       String?  @db.Text
+  vendorMeta  Json?    // e.g. catalog, capabilities, tags
+  createdAt   DateTime @default(now())
+
+  sentRfps    SentRFP[]
+  proposals   Proposal[]
+
+  @@index([contactEmail])
+  @@index([name])
+}
+
+enum SentStatus {
+  DRAFT
+  SENT
+  BOUNCED
+  DELIVERED
+  FAILED
+}
+
+model SentRFP {
+  id           String     @id @default(uuid()) @db.Uuid
+  rfpId        String     @db.Uuid
+  vendorId     String     @db.Uuid
+  sentAt       DateTime?
+  status       SentStatus @default(DRAFT)
+  messageId    String?    // provider message id (SendGrid/Mailgun)
+  replyTo      String?    // actual Reply-To used for this send
+  referenceId  String     // helps map inbound -> SentRFP (e.g., rfp:{rfpId}:sent:{id})
+  createdAt    DateTime   @default(now())
+
+  rfp          RFP        @relation(fields: [rfpId], references: [id])
+  vendor       Vendor     @relation(fields: [vendorId], references: [id])
+
+  @@index([rfpId])
+  @@index([vendorId])
+  @@index([status])
+  @@unique([referenceId])
+}
+
+model Proposal {
+  id               String   @id @default(uuid()) @db.Uuid
+  rfpId            String   @db.Uuid
+  vendorId         String   @db.Uuid
+  // total price from vendor (nullable if not parsed)
+  priceUsd         Decimal? @db.Decimal(18, 2)
+  // detailed line items & pricing parsed as JSON (array of { name, qty, unit_price_usd, total })
+  lineItems        Json?
+  deliveryDays     Int?
+  warrantyMonths   Int?
+  paymentTerms     String?
+  completenessScore Float?   // 0..100
+  parsedAt         DateTime?
+  rawEmailBody     String?   @db.Text
+  attachmentsMeta  Json?     // array of { filename, s3Key, contentType, size }
+  sentRfpReference String?   // optional mapping to SentRFP.referenceId if helpful
+  createdAt        DateTime  @default(now())
+
+  rfp              RFP      @relation(fields: [rfpId], references: [id])
+  vendor           Vendor   @relation(fields: [vendorId], references: [id])
+  attachments      Attachment[]
+
+  @@index([rfpId])
+  @@index([vendorId])
+  @@index([priceUsd])
+  @@index([parsedAt])
+}
+
+model Attachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  proposalId  String   @db.Uuid
+  filename    String
+  s3Key       String   @unique
+  contentType String?
+  size        Int?
+  createdAt   DateTime @default(now())
+
+  proposal    Proposal @relation(fields: [proposalId], references: [id])
+
+  @@index([proposalId])
+}
+
+model Comparison {
+  id                  String   @id @default(uuid()) @db.Uuid
+  rfpId               String   @db.Uuid
+  computedScores      Json     
+  recommendedVendorId String?  @db.Uuid
+  rationale           String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  rfp                 RFP      @relation(fields: [rfpId], references: [id])
+
+  @@index([rfpId])
+  @@index([recommendedVendorId])
+}

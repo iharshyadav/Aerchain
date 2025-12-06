@@ -1,0 +1,48 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --exec tsx app/server.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mailparser": "^3.4.6",
+    "@types/multiparty": "^4.2.1",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "@types/uuid": "^10.0.0",
+    "prisma": "^7.1.0",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.943.0",
+    "@aws-sdk/s3-request-presigner": "^3.943.0",
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/adapter-pg": "^7.0.1",
+    "@prisma/client": "^7.0.1",
+    "@sendgrid/mail": "^8.1.6",
+    "@types/express": "^5.0.6",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.1",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.9.0",
+    "multiparty": "^4.2.3",
+    "nodemon": "^3.1.11",
+    "pg": "^8.16.3",
+    "uuid": "^13.0.0"
+  }
+}
