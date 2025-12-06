@@ -3,7 +3,11 @@ import vendorController from "../controller/vendor.controller.js";
 
 const router = Router();
 
-// Create a new vendor
+// Vendor Authentication
+router.post("/signup", vendorController.validateVendorSignup, vendorController.signup);
+router.post("/login", vendorController.validateVendorLogin, vendorController.login);
+
+// Create a new vendor (admin only - without auth)
 router.post("/", vendorController.validateVendor, vendorController.createVendor);
 
 // Get all vendors (with pagination and search)

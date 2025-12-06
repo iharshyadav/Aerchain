@@ -51,7 +51,8 @@ model RFP {
 model Vendor {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
-  contactEmail String  @db.VarChar(255)
+  contactEmail String  @unique @db.VarChar(255)
+  password    String
   phone       String? 
   notes       String?  @db.Text
   vendorMeta  Json?    // e.g. catalog, capabilities, tags

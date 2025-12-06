@@ -1,8 +1,28 @@
 import type { Request, Response } from "express";
 import { body, validationResult } from 'express-validator';
 import prisma from "../database/db.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 class VendorController {
+
+    public validateVendorSignup = [
+        body('name').trim().isLength({ min: 2 }).withMessage('Vendor name must be at least 2 characters'),
+        body('contactEmail').isEmail().normalizeEmail().withMessage('Invalid email address'),
+        body('password')
+            .isLength({ min: 8 })
+            .withMessage('Password must be at least 8 characters long')
+            .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])/)
+            .withMessage('Password must include uppercase, lowercase, number and special character'),
+        body('phone').optional().trim().isLength({ min: 10 }).withMessage('Phone number must be at least 10 characters'),
+        body('notes').optional().trim(),
+        body('vendorMeta').optional().isObject().withMessage('vendorMeta must be a valid JSON object')
+    ];
+
+    public validateVendorLogin = [
+        body('contactEmail').isEmail().normalizeEmail().withMessage('Invalid email address'),
+        body('password').notEmpty().withMessage('Password is required')
+    ];
 
     public validateVendor = [
         body('name').trim().isLength({ min: 2 }).withMessage('Vendor name must be at least 2 characters'),
@@ -12,7 +32,8 @@ class VendorController {
         body('vendorMeta').optional().isObject().withMessage('vendorMeta must be a valid JSON object')
     ];
 
-    public async createVendor(req: Request, res: Response) {
+    // Vendor Signup
+    public async signup(req: Request, res: Response) {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             res.status(400).json({ 
@@ -22,7 +43,7 @@ class VendorController {
             return;
         }
 
-        const { name, contactEmail, phone, notes, vendorMeta } = req.body;
+        const { name, contactEmail, password, phone, notes, vendorMeta } = req.body;
 
         try {
             const existingVendor = await prisma.vendor.findFirst({
@@ -37,10 +58,144 @@ class VendorController {
                 return;
             }
 
+            const hashedPassword = await bcrypt.hash(password, 10);
+
             const newVendor = await prisma.vendor.create({
                 data: {
                     name,
                     contactEmail,
+                    password: hashedPassword,
+                    phone: phone || null,
+                    notes: notes || null,
+                    vendorMeta: vendorMeta || null
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    contactEmail: true,
+                    phone: true,
+                    notes: true,
+                    vendorMeta: true,
+                    createdAt: true
+                }
+            });
+
+            const token = jwt.sign(
+                { vendorId: newVendor.id, type: 'vendor' },
+                process.env.JWT_SECRET as string,
+                { expiresIn: '7d' }
+            );
+
+            res.status(201).json({ 
+                success: true,
+                message: 'Vendor registered successfully',
+                data: {
+                    vendor: newVendor,
+                    token
+                }
+            });
+        } catch (error) {
+            console.error('Vendor signup error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Internal server error' 
+            });
+        }
+    }
+
+    // Vendor Login
+    public async login(req: Request, res: Response) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            res.status(400).json({ 
+                success: false,
+                errors: errors.array() 
+            });
+            return;
+        }
+
+        const { contactEmail, password } = req.body;
+
+        try {
+            const vendor = await prisma.vendor.findFirst({
+                where: { contactEmail }
+            });
+
+            if (!vendor) {
+                res.status(401).json({ 
+                    success: false,
+                    message: 'Invalid email or password' 
+                });
+                return;
+            }
+
+            const isPasswordValid = await bcrypt.compare(password, vendor.password);
+
+            if (!isPasswordValid) {
+                res.status(401).json({ 
+                    success: false,
+                    message: 'Invalid email or password' 
+                });
+                return;
+            }
+
+            const token = jwt.sign(
+                { vendorId: vendor.id, type: 'vendor' },
+                process.env.JWT_SECRET as string,
+                { expiresIn: '7d' }
+            );
+
+            const { password: _, ...vendorWithoutPassword } = vendor;
+
+            res.status(200).json({ 
+                success: true,
+                message: 'Login successful',
+                data: {
+                    vendor: vendorWithoutPassword,
+                    token
+                }
+            });
+        } catch (error) {
+            console.error('Vendor login error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Internal server error' 
+            });
+        }
+    }
+
+    public async createVendor(req: Request, res: Response) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            res.status(400).json({ 
+                success: false,
+                errors: errors.array() 
+            });
+            return;
+        }
+
+        const { name, contactEmail, phone, notes, vendorMeta, password } = req.body;
+
+        try {
+            const existingVendor = await prisma.vendor.findFirst({
+                where: { contactEmail }
+            });
+
+            if (existingVendor) {
+                res.status(409).json({ 
+                    success: false,
+                    message: 'Vendor with this email already exists' 
+                });
+                return;
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            const newVendor = await prisma.vendor.create({
+                data: {
+                    name,
+                    contactEmail,
+                    password: hashedPassword,
                     phone: phone || null,
                     notes: notes || null,
                     vendorMeta: vendorMeta || null

@@ -371,6 +371,7 @@ export async function inboundHandler(req: Request, res: Response) {
               name: vendorName,
               contactEmail: fromAddress,
               notes: 'Auto-created from inbound email',
+              password: 'unknown-vendor-placeholder',
             },
           });
         }
@@ -387,6 +388,7 @@ export async function inboundHandler(req: Request, res: Response) {
               name: 'Unknown Vendor',
               contactEmail: 'unknown@unknown.com',
               notes: 'Placeholder for unmatched inbound emails',
+              password: 'unknown-vendor-placeholder',
             },
           });
         }
