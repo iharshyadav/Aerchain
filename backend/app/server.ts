@@ -5,6 +5,7 @@ import cors from "cors"
 import userRouter from "./routes/user.route.js"
 import emailRouter from './routes/email.route.js';
 import vendorRouter from './routes/vendor.route.js';
+import proposalRouter from './routes/proposal.route.js';
 import { inboundHandler } from "./controller/email.controller.js";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use("/api/users",userRouter);
 app.use(express.json({ limit: '5mb' }));
 app.use('/api/email', emailRouter);
 app.use('/api/vendors', vendorRouter);
+app.use('/api/proposals', proposalRouter);
 
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello, harsh!');

@@ -177,6 +177,90 @@ class UserRfpController {
             });
         }
     }
+
+    public getUserRfps = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { userId } = req.params;
+            const { limit = '20', page = '1', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+
+            if (!userId) {
+                res.status(400).json({
+                    success: false,
+                    message: 'User ID is required'
+                });
+                return;
+            }
+
+            // Verify user exists
+            const userExists = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true }
+            });
+
+            if (!userExists) {
+                res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+                return;
+            }
+
+            const limitNum = parseInt(limit as string);
+            const pageNum = parseInt(page as string);
+            const skip = (pageNum - 1) * limitNum;
+
+            const [rfps, totalCount] = await Promise.all([
+                prisma.rFP.findMany({
+                    where: { createdById: userId },
+                    skip,
+                    take: limitNum,
+                    orderBy: { [sortBy as string]: sortOrder as 'asc' | 'desc' },
+                    select: {
+                        id: true,
+                        title: true,
+                        descriptionRaw: true,
+                        requirements: true,
+                        budgetUsd: true,
+                        deliveryDays: true,
+                        paymentTerms: true,
+                        warrantyMonths: true,
+                        referenceToken: true,
+                        createdAt: true,
+                        _count: {
+                            select: {
+                                sentRfps: true,
+                                proposals: true
+                            }
+                        }
+                    }
+                }),
+                prisma.rFP.count({ where: { createdById: userId } })
+            ]);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    rfps,
+                    pagination: {
+                        page: pageNum,
+                        limit: limitNum,
+                        total: totalCount,
+                        totalPages: Math.ceil(totalCount / limitNum)
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching user RFPs:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                details: process.env.NODE_ENV === 'development'
+                    ? (error instanceof Error ? error.message : 'Unknown error')
+                    : undefined
+            });
+        }
+    }
 }
 
 export default new UserRfpController();

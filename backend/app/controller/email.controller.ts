@@ -215,9 +215,9 @@ export async function inboundHandler(req: Request, res: Response) {
   try {
     const token = (req.query.token as string) || '';
     if (!token || token !== process.env.SENDGRID_INBOUND_TOKEN) {
-      return res.status(401).send('invalid token');
+      return res.status(401).json({ ok: false, error: 'invalid token' });
     }
-    if (req.method !== 'POST') return res.status(405).send('method not allowed');
+    if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method not allowed' });
 
     const form = new multiparty.Form();
     const { fields, files } = await new Promise<{ fields: any; files: any }>((resolve, reject) => {
@@ -243,7 +243,7 @@ export async function inboundHandler(req: Request, res: Response) {
 
     if (rawEmail) {
       parsed = await simpleParser(rawEmail);
-      // console.log(parsed,"manish")
+      console.log(parsed,"manish")
     } else {
       parsed = {
         from: Array.isArray(fields.from) ? fields.from[0] : fields.from?.[0] || fields.sender?.[0] || null,
@@ -255,40 +255,78 @@ export async function inboundHandler(req: Request, res: Response) {
         attachments: [],
         messageId: null,
       };
+       console.log(parsed,"harsh")
     }
 
-    const attachmentsMeta: Array<{ filename: string; key: string; url: string; size: number; contentType?: string | null }> = [];
+    // const attachmentsMeta: Array<{ filename: string; key: string; url: string; size: number; contentType?: string | null }> = [];
 
-    if (files && Object.keys(files).length > 0) {
-      for (const key of Object.keys(files)) {
-        for (const f of files[key]) {
-          const tmpPath = f.path;
-          const originalName = f.originalFilename || f.filename || path.basename(tmpPath);
-          const buffer = fs.readFileSync(tmpPath);
-          const contentType = f.headers?.['content-type'] || null;
+    // if (files && Object.keys(files).length > 0) {
+    //   for (const key of Object.keys(files)) {
+    //     for (const f of files[key]) {
+    //       const tmpPath = f.path;
+    //       const originalName = f.originalFilename || f.filename || path.basename(tmpPath);
+    //       const buffer = fs.readFileSync(tmpPath);
+    //       const contentType = f.headers?.['content-type'] || null;
 
-          const uploaded = await uploadBufferToSpaces(buffer, originalName, contentType || undefined);
-          attachmentsMeta.push({ filename: originalName, key: uploaded.key, url: uploaded.url, size: uploaded.size, contentType: uploaded.contentType });
+    //       const uploaded = await uploadBufferToSpaces(buffer, originalName, contentType || undefined);
+    //       attachmentsMeta.push({ filename: originalName, key: uploaded.key, url: uploaded.url, size: uploaded.size, contentType: uploaded.contentType });
 
-          try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
-        }
-      }
+    //       try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
+    //     }
+    //   }
+    // }
+
+    // if (parsed.attachments && parsed.attachments.length) {
+    //   for (const a of parsed.attachments as MailAttachment[]) {
+    //     const buffer = a.content as Buffer;
+    //     const filename = a.filename || `attachment-${uuidv4()}`;
+    //     const uploaded = await uploadBufferToSpaces(buffer, filename, a.contentType || undefined);
+    //     attachmentsMeta.push({ filename, key: uploaded.key, url: uploaded.url, size: uploaded.size, contentType: uploaded.contentType });
+    //   }
+    // }
+
+    // Extract sender email address
+    let fromAddress: string | null = null;
+    
+    if (parsed.from?.value?.[0]?.address) {
+      fromAddress = parsed.from.value[0].address;
+    } else if (typeof parsed.from === 'string') {
+      // Extract email from string like "Name <email@domain.com>"
+      const emailMatch = parsed.from.match(/<([^>]+)>/);
+      fromAddress = emailMatch ? emailMatch[1] : parsed.from;
+    } else if (Array.isArray(fields.from) && fields.from[0]) {
+      const emailMatch = fields.from[0].match(/<([^>]+)>/);
+      fromAddress = emailMatch ? emailMatch[1] : fields.from[0];
+    } else if (fields.from?.[0]) {
+      const emailMatch = fields.from[0].match(/<([^>]+)>/);
+      fromAddress = emailMatch ? emailMatch[1] : fields.from[0];
     }
 
-    if (parsed.attachments && parsed.attachments.length) {
-      for (const a of parsed.attachments as MailAttachment[]) {
-        const buffer = a.content as Buffer;
-        const filename = a.filename || `attachment-${uuidv4()}`;
-        const uploaded = await uploadBufferToSpaces(buffer, filename, a.contentType || undefined);
-        attachmentsMeta.push({ filename, key: uploaded.key, url: uploaded.url, size: uploaded.size, contentType: uploaded.contentType });
-      }
+    console.log(fromAddress, "extracted email address")
+
+    if (!fromAddress) {
+      console.error('No sender email found in inbound email');
+      return res.status(400).json({ ok: false, error: 'No sender email address found' });
     }
 
-    const fromAddress =
-      parsed.from?.value?.[0]?.address ||
-      (typeof parsed.from === 'string' ? parsed.from : null) ||
-      (Array.isArray(fields.from) ? fields.from[0] : fields.from?.[0]) ||
-      null;
+    // Normalize email to lowercase
+    fromAddress = fromAddress.toLowerCase().trim();
+
+    // Check if vendor exists in the system
+    const vendor = await prisma.vendor.findFirst({
+      where: { contactEmail: fromAddress }
+    });
+
+    console.log(vendor, "vendor found")
+
+    if (!vendor) {
+      console.warn(`Rejected email from unknown vendor: ${fromAddress}`);
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'Unknown vendor', 
+        message: `Email from ${fromAddress} rejected. Vendor not found in system.` 
+      });
+    }
 
     const toList: string[] = [];
     if (parsed.to) {
@@ -301,6 +339,8 @@ export async function inboundHandler(req: Request, res: Response) {
 
     const subject = parsed.subject || (Array.isArray(fields.subject) ? fields.subject[0] : fields.subject?.[0] || '');
 
+    console.log(parsed.headers,"nice")
+
     let inReplyTo: string | null = null;
     try {
       if (parsed.headers && typeof parsed.headers.get === 'function') {
@@ -310,138 +350,88 @@ export async function inboundHandler(req: Request, res: Response) {
       console.log(e)
     }
 
+    console.log(inReplyTo,"after in reply first")
+
     if (!inReplyTo) {
       inReplyTo = (Array.isArray(fields['In-Reply-To']) ? fields['In-Reply-To'][0] : fields['In-Reply-To']) || null;
     }
+
+    console.log(inReplyTo,"after in reply second")
 
    
     const parsedMessageId = (parsed.messageId || parsed.messageId?.toString()) || null;
 
     let matchedSent: any = null;
 
+    // Try to match with In-Reply-To header
     if (inReplyTo) {
       const cleaned = (inReplyTo || '').toString().trim();
-      matchedSent = await prisma.sentRFP.findFirst({ where: { messageId: cleaned } });
-
-      console.log(matchedSent,"harsh")
+      console.log(cleaned,"cleaned message")
+      matchedSent = await prisma.sentRFP.findFirst({ 
+        where: { 
+          messageId: cleaned,
+          vendorId: vendor.id 
+        } 
+      });
     }
 
+    console.log(matchedSent,"after in reply header")
+
+    // Try to match with Message-ID
     if (!matchedSent && parsedMessageId) {
-      matchedSent = await prisma.sentRFP.findFirst({ where: { messageId: parsedMessageId } });
+      matchedSent = await prisma.sentRFP.findFirst({ 
+        where: { 
+          messageId: parsedMessageId,
+          vendorId: vendor.id  // Ensure it matches the vendor
+        } 
+      });
     }
 
-    console.log(matchedSent,"harsh")
-
+    // Try to match with reference token from email
     if (!matchedSent) {
       const joinedTo = toList.join(', ');
       const token = extractTokenFromRecipient(joinedTo) || extractRefFromSubject(subject);
       if (token) {
-        matchedSent = await prisma.sentRFP.findFirst({ where: { referenceId: token } }).catch(() => null);
+        matchedSent = await prisma.sentRFP.findFirst({ 
+          where: { 
+            referenceId: token,
+            vendorId: vendor.id  // Ensure it matches the vendor
+          } 
+        });
       }
     }
 
-    let fallbackVendor: any = null;
-    if (!matchedSent && fromAddress) {
-      fallbackVendor = await prisma.vendor.findFirst({ where: { contactEmail: fromAddress } });
-      if (fallbackVendor) {
-        const recent = await prisma.sentRFP.findFirst({
-          where: { vendorId: fallbackVendor.id },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (recent) matchedSent = recent;
-      }
-    }
-
-    let rfpId: string;
-    let vendorId: string;
-
-    if (matchedSent) {
-      rfpId = matchedSent.rfpId;
-      vendorId = matchedSent.vendorId;
-    } else {
-      if (!fallbackVendor && fromAddress) {
-        fallbackVendor = await prisma.vendor.findFirst({
-          where: { contactEmail: fromAddress },
-        });
-
-        if (!fallbackVendor) {
-          const vendorName = parsed.from?.value?.[0]?.name || fromAddress.split('@')[0];
-          fallbackVendor = await prisma.vendor.create({
-            data: {
-              name: vendorName,
-              contactEmail: fromAddress,
-              notes: 'Auto-created from inbound email',
-              password: 'unknown-vendor-placeholder',
-            },
-          });
-        }
-      }
-
-      if (!fallbackVendor) {
-        fallbackVendor = await prisma.vendor.findFirst({
-          where: { contactEmail: 'unknown@unknown.com' },
-        });
-
-        if (!fallbackVendor) {
-          fallbackVendor = await prisma.vendor.create({
-            data: {
-              name: 'Unknown Vendor',
-              contactEmail: 'unknown@unknown.com',
-              notes: 'Placeholder for unmatched inbound emails',
-              password: 'unknown-vendor-placeholder',
-            },
-          });
-        }
-      }
-
-      const fallbackRfp = await prisma.rFP.findFirst({
-        where: { title: 'Unmatched Inbound Proposals' },
+    // Try to find most recent RFP sent to this vendor
+    if (!matchedSent) {
+      matchedSent = await prisma.sentRFP.findFirst({
+        where: { vendorId: vendor.id },
+        orderBy: { createdAt: 'desc' },
       });
-
-      if (fallbackRfp) {
-        rfpId = fallbackRfp.id;
-      } else {
-        const systemUser = await prisma.user.findFirst({
-          where: { email: 'system@albatrosscoder.live' },
-        });
-
-        let createdById: string;
-        if (!systemUser) {
-          const newSystemUser = await prisma.user.create({
-            data: {
-              email: 'system@albatrosscoder.live',
-              username: 'system',
-              password: 'not-applicable',
-              name: 'System User',
-            },
-          });
-          createdById = newSystemUser.id;
-        } else {
-          createdById = systemUser.id;
-        }
-
-        const newFallbackRfp = await prisma.rFP.create({
-          data: {
-            title: 'Unmatched Inbound Proposals',
-            descriptionRaw: 'Container for proposals that could not be matched to an existing RFP',
-            requirements: {},
-            referenceToken: `fallback-${uuidv4()}`,
-            createdById,
-          },
-        });
-        rfpId = newFallbackRfp.id;
-      }
-
-      vendorId = fallbackVendor.id;
     }
 
+    console.log(matchedSent,"after most recent rfp searched")
+
+    // If still no match, reject the email
+    if (!matchedSent) {
+      console.warn(`No matching RFP found for vendor: ${vendor.name} (${fromAddress})`);
+      return res.status(404).json({ 
+        ok: false, 
+        error: 'No matching RFP found',
+        message: `No RFP was sent to this vendor (${vendor.name}). Cannot process proposal.` 
+      });
+    }
+
+    const rfpId = matchedSent.rfpId;
+    const vendorId = vendor.id;
+
+    // Create the proposal
     const createdProposal = await prisma.proposal.create({
       data: {
         rfpId,
         vendorId,
-        sentRfpReference: matchedSent?.referenceId ?? null,
+        sentRfpReference: matchedSent.referenceId,
         rawEmailBody: parsed.text || parsed.html || "",
-        attachmentsMeta: attachmentsMeta.length ? attachmentsMeta : [],
+        attachmentsMeta: [],
         parsedAt: new Date(),
         priceUsd: null,
         lineItems: {},
@@ -452,6 +442,7 @@ export async function inboundHandler(req: Request, res: Response) {
       },
     });
 
+    // Try to parse with AI
     try {
       const emailBody = parsed.text || parsed.html || "";
       if (emailBody && emailBody.trim().length > 10) {
@@ -459,7 +450,6 @@ export async function inboundHandler(req: Request, res: Response) {
         
         if (latestContent && latestContent.length > 5) {
           console.log('Parsing proposal with AI...');
-          console.log('Latest content extracted:', latestContent.substring(0, 200));
           
           const aiResponse = await generateResponse(latestContent, proposalPrompt);
           
@@ -483,14 +473,13 @@ export async function inboundHandler(req: Request, res: Response) {
           });
           
           console.log('Proposal parsed and updated successfully');
-        } else {
-          console.log('Latest content too short, skipping AI parsing');
         }
       }
     } catch (aiError) {
       console.error('Failed to parse proposal with AI:', aiError);
     }
 
+    // Update SentRFP status
     if (matchedSent) {
       try {
         await prisma.sentRFP.update({
@@ -502,7 +491,13 @@ export async function inboundHandler(req: Request, res: Response) {
       }
     }
 
-    return res.status(200).json({ ok: true, createdProposalId: createdProposal.id });
+    console.log(`Proposal created successfully from vendor: ${vendor.name} (${fromAddress})`);
+    return res.status(200).json({ 
+      ok: true, 
+      createdProposalId: createdProposal.id,
+      vendor: vendor.name,
+      rfpId: rfpId
+    });
   } catch (err) {
     console.error('Inbound handler error', err);
     return res.status(500).json({ ok: false, error: (err as any)?.message || 'internal' });
