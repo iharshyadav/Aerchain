@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aerchain Frontend
+
+Next.js frontend application for managing RFPs, vendors, and proposals.
+
+## Features
+
+- User and vendor dashboards
+- Create and manage RFPs
+- Send RFPs to multiple vendors
+- View and compare vendor proposals
+- Vendor management interface
+- Responsive design with Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js (v18 or higher)
+- pnpm (or npm/yarn)
+
+### Installation
+
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd frontend
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Edit `.env.local`:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+For production, point this to your deployed backend URL.
 
-## Learn More
+### Running the app
 
-To learn more about Next.js, take a look at the following resources:
+Development mode:
+```bash
+pnpm dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app will be available at `http://localhost:3000`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Build for production:
+```bash
+pnpm build
+pnpm start
+```
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/
+  auth/          - Login and signup pages
+  user/          - User dashboard and features
+  vendor/        - Vendor dashboard and features
+components/
+  ui/            - Reusable UI components (buttons, forms, etc.)
+  dashboard/     - Dashboard-specific components
+lib/
+  api/           - API client functions
+  utils.ts       - Utility functions
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Main Routes
+
+- `/` - Landing page
+- `/auth/login` - Login page
+- `/auth/signup` - Sign up (user or vendor)
+- `/user/dashboard` - User dashboard
+- `/user/rfp` - RFP management
+- `/user/vendors` - Vendor management
+- `/vendor/dashboard` - Vendor dashboard
+- `/vendor/proposals` - View received RFPs
+
+## Deployment
+
+This is a standard Next.js app and can be deployed on Vercel, Netlify, or any platform that supports Next.js.
+
+Remember to set the `NEXT_PUBLIC_API_URL` environment variable to your production backend URL.
