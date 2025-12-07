@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -35,7 +36,7 @@ import {
   Sparkles
 } from "lucide-react"
 
-export default function ProposalsPage() {
+function ProposalsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const rfpId = searchParams.get('rfpId')
@@ -617,5 +618,17 @@ export default function ProposalsPage() {
         </DialogContent>
       </Dialog>
     </DashboardLayout>
+  )
+}
+
+export default function ProposalsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading proposals...</div>
+      </div>
+    }>
+      <ProposalsContent />
+    </Suspense>
   )
 }

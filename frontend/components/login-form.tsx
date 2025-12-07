@@ -53,7 +53,7 @@ export function LoginForm() {
       localStorage.setItem("token", data.data.token)
       localStorage.setItem("userType", "user")
       localStorage.setItem("user_data",JSON.stringify(data.data.user))
-      router.push("/user/dashboard")
+      window.location.href = "/user/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
@@ -78,7 +78,7 @@ export function LoginForm() {
       // localStorage.setItem("token", data.data.token)
       localStorage.setItem("userType", "vendor")
       // localStorage.setItem("vendor_data",JSON.stringify(data.data.vendor))
-      router.push("/vendor/dashboard")
+      window.location.href = "/vendor/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {

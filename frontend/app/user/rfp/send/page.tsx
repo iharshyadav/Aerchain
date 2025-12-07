@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAuth } from "@/lib/auth-context"
@@ -25,7 +25,7 @@ interface Vendor {
   }
 }
 
-export default function SendRFPPage() {
+function SendRFPContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
@@ -47,12 +47,12 @@ export default function SendRFPPage() {
   }, [])
 
   useEffect(() => {
-  const storedRfpText = sessionStorage.getItem('rfpText')
-  if (storedRfpText) {
-    setEmailBody(storedRfpText)
-    sessionStorage.removeItem('rfpText')
-  }
-}, [])
+    const storedRfpText = sessionStorage.getItem('rfpText')
+    if (storedRfpText) {
+      setEmailBody(storedRfpText)
+      sessionStorage.removeItem('rfpText')
+    }
+  }, [])
 
   const loadVendors = async () => {
     try {
@@ -276,5 +276,17 @@ export default function SendRFPPage() {
         </div>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function SendRFPPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    }>
+      <SendRFPContent />
+    </Suspense>
   )
 }
