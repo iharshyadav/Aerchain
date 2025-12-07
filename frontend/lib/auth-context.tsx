@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await vendorApi.login(email, password)
     
     setVendor(response.data.vendor)
+    console.log(response.data.vendor)
     localStorage.setItem("vendor_data", JSON.stringify(response.data.vendor))
     localStorage.setItem("token", response.data.token)
   }

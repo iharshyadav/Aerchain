@@ -156,7 +156,7 @@ export const rfpApi = {
    async getRFPById(rfpId: string): Promise<{ success: boolean; data: { rfp: RFP } }> {
     const token = getAuthToken()
     
-    const response = await fetch(`${API_BASE_URL}/api/proposals/rfp/${rfpId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/rfp/${rfpId}`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
@@ -180,6 +180,38 @@ export const rfpApi = {
 
     const response = await fetch(
       `${API_BASE_URL}/api/proposals/user/${userId}?${queryParams}`,
+      {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      }
+    )
+    
+    return handleResponse(response)
+  },
+
+  async compareProposals(rfpId: string): Promise<{
+    success: boolean
+    data: {
+      rfp: {
+        id: string
+        title: string
+        budgetUsd: number | null
+      }
+      rankedProposals: any[]
+      summary: {
+        totalProposals: number
+        bestVendor: string
+        bestScore: number
+        averagePrice: number
+        recommendation: string
+      }
+    }
+  }> {
+    const token = getAuthToken()
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/proposals/compare/${rfpId}`,
       {
         headers: {
           ...(token && { 'Authorization': `Bearer ${token}` }),

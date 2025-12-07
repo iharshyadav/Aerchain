@@ -228,9 +228,9 @@ export default function SendRFPPage() {
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject *</Label>
                 <Input
-                className=""
+                  className={emailSubject.trim() ? "" : "border-red-400 border"}
                   id="subject"
-                  placeholder="e.g., Request for Proposal: Office Supplies Q1 2025"
+                  placeholder="Please enter the subject for your proporsal"
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                 />

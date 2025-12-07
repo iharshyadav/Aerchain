@@ -40,6 +40,14 @@ export interface VendorStats {
       averageProposalPrice: string
       averageCompletenessScore: string
       responseRate: string
+      recentRfps: Array<{
+        id: string
+        status: string
+        sentAt: string
+        rfp: {
+          title: string
+        }
+      }>
     }
   }
 }
@@ -59,13 +67,15 @@ export const vendorApi = {
       },
       body: JSON.stringify({ contactEmail: email, password }),
     })
+
+    const res = await response.json();
     
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.message || 'Failed to login')
     }
-    
-    return response.json()
+
+    return res;
   },
 
   async signup(data: {
@@ -215,6 +225,29 @@ export const vendorApi = {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.message || 'Failed to fetch vendor RFPs')
+    }
+    
+    return response.json()
+  },
+
+  async getSentRFPById(sentRfpId: string): Promise<{
+    success: boolean
+    data: {
+      sentRfp: any
+    }
+  }> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/vendors/rfp/${sentRfpId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+      }
+    )
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to fetch RFP details')
     }
     
     return response.json()

@@ -261,6 +261,65 @@ class UserRfpController {
             });
         }
     }
+
+    public async getRFPById(req: Request, res: Response) {
+        try {
+            const { rfpId } = req.params;
+
+            if (!rfpId) {
+                res.status(400).json({
+                    success: false,
+                    message: 'RFP ID is required'
+                });
+                return;
+            }
+
+            const rfp = await prisma.rFP.findUnique({
+                where: { id: rfpId },
+                select: {
+                    id: true,
+                    title: true,
+                    descriptionRaw: true,
+                    requirements: true,
+                    budgetUsd: true,
+                    deliveryDays: true,
+                    paymentTerms: true,
+                    warrantyMonths: true,
+                    referenceToken: true,
+                    createdAt: true,
+                    _count: {
+                        select: {
+                            sentRfps: true,
+                            proposals: true
+                        }
+                    }
+                }
+            });
+
+            if (!rfp) {
+                res.status(404).json({
+                    success: false,
+                    message: 'RFP not found'
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                data: { rfp }
+            });
+
+        } catch (error) {
+            console.error('Error fetching RFP:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                details: process.env.NODE_ENV === 'development'
+                    ? (error instanceof Error ? error.message : 'Unknown error')
+                    : undefined
+            });
+        }
+    }
 }
 
 export default new UserRfpController();

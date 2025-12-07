@@ -487,8 +487,19 @@ class VendorController {
                 include: {
                     sentRfps: {
                         select: {
-                            status: true
-                        }
+                            id: true,
+                            status: true,
+                            sentAt: true,
+                            rfp: {
+                                select: {
+                                    title: true
+                                }
+                            }
+                        },
+                        orderBy: {
+                            sentAt: 'desc'
+                        },
+                        take: 3
                     },
                     proposals: {
                         select: {
@@ -535,12 +546,232 @@ class VendorController {
                         averageCompletenessScore: avgCompletenessScore.toFixed(2),
                         responseRate: totalRfpsSent > 0 
                             ? ((totalProposals / totalRfpsSent) * 100).toFixed(2) + '%'
-                            : '0%'
+                            : '0%',
+                        recentRfps: vendor.sentRfps
                     }
                 }
             });
         } catch (error) {
             console.error('Get vendor stats error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Internal server error' 
+            });
+        }
+    }
+
+    // Get vendor RFPs with pagination
+    public async getVendorRFPs(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            if (!id) {
+                res.status(400).json({ 
+                    success: false,
+                    message: 'Vendor ID is required' 
+                });
+                return;
+            }
+
+            const vendor = await prisma.vendor.findUnique({
+                where: { id }
+            });
+
+            if (!vendor) {
+                res.status(404).json({ 
+                    success: false,
+                    message: 'Vendor not found' 
+                });
+                return;
+            }
+
+            const [rfps, total] = await Promise.all([
+                prisma.sentRFP.findMany({
+                    where: { vendorId: id },
+                    include: {
+                        rfp: {
+                            select: {
+                                id: true,
+                                title: true,
+                                budgetUsd: true,
+                                deliveryDays: true,
+                                requirements: true,
+                                createdBy: {
+                                    select: {
+                                        name: true,
+                                        email: true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { sentAt: 'desc' },
+                    skip,
+                    take: limit
+                }),
+                prisma.sentRFP.count({
+                    where: { vendorId: id }
+                })
+            ]);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    rfps,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages: Math.ceil(total / limit)
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Get vendor RFPs error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Internal server error' 
+            });
+        }
+    }
+
+    // Get single sent RFP by ID
+    public async getSentRFPById(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+
+            if (!id) {
+                res.status(400).json({ 
+                    success: false,
+                    message: 'Sent RFP ID is required' 
+                });
+                return;
+            }
+
+            const sentRfp = await prisma.sentRFP.findUnique({
+                where: { id },
+                include: {
+                    rfp: {
+                        select: {
+                            id: true,
+                            title: true,
+                            descriptionRaw: true,
+                            requirements: true,
+                            budgetUsd: true,
+                            deliveryDays: true,
+                            paymentTerms: true,
+                            warrantyMonths: true,
+                            createdAt: true,
+                            createdBy: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    email: true
+                                }
+                            }
+                        }
+                    },
+                    vendor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            contactEmail: true
+                        }
+                    }
+                }
+            });
+
+            if (!sentRfp) {
+                res.status(404).json({ 
+                    success: false,
+                    message: 'Sent RFP not found' 
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                data: { sentRfp }
+            });
+        } catch (error) {
+            console.error('Get sent RFP error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Internal server error' 
+            });
+        }
+    }
+
+    // Get vendor proposals with pagination
+    public async getVendorProposals(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            if (!id) {
+                res.status(400).json({ 
+                    success: false,
+                    message: 'Vendor ID is required' 
+                });
+                return;
+            }
+
+            const vendor = await prisma.vendor.findUnique({
+                where: { id }
+            });
+
+            if (!vendor) {
+                res.status(404).json({ 
+                    success: false,
+                    message: 'Vendor not found' 
+                });
+                return;
+            }
+
+            const [proposals, total] = await Promise.all([
+                prisma.proposal.findMany({
+                    where: { vendorId: id },
+                    include: {
+                        rfp: {
+                            select: {
+                                title: true,
+                                createdBy: {
+                                    select: {
+                                        name: true,
+                                        email: true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take: limit
+                }),
+                prisma.proposal.count({
+                    where: { vendorId: id }
+                })
+            ]);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    proposals,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages: Math.ceil(total / limit)
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Get vendor proposals error:', error);
             res.status(500).json({ 
                 success: false,
                 message: 'Internal server error' 

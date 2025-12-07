@@ -25,4 +25,13 @@ router.delete("/:id", vendorController.deleteVendor);
 // Get vendor statistics
 router.get("/:id/stats", vendorController.getVendorStats);
 
+// Get vendor RFPs
+router.get("/:id/rfps", vendorController.getVendorRFPs);
+
+// Get single sent RFP by ID
+router.get("/rfp/:id", vendorController.getSentRFPById);
+
+// Get vendor proposals
+router.get("/:id/proposals", vendorController.getVendorProposals);
+
 export default router;

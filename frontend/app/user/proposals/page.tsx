@@ -29,7 +29,10 @@ import {
   ChevronRight,
   X,
   Calendar,
-  Package
+  Package,
+  TrendingUp,
+  Award,
+  Sparkles
 } from "lucide-react"
 
 export default function ProposalsPage() {
@@ -44,12 +47,20 @@ export default function ProposalsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isComparing, setIsComparing] = useState(false)
+  const [comparisonData, setComparisonData] = useState<any>(null)
+  const [showComparison, setShowComparison] = useState(false)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
     totalPages: 0,
   })
+
+  useEffect(() => {
+   console.log(proposals.length)
+   console.log(selectedRfp)
+  },[proposals.length,selectedRfp])
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -92,6 +103,11 @@ export default function ProposalsPage() {
 
       setProposals(response.data.proposals)
       setPagination(response.data.pagination)
+      
+      // Set selectedRfp from the first proposal if not already set and we have rfpId
+      if (!selectedRfp && rfpId && response.data.proposals.length > 0 && response.data.proposals[0].rfp) {
+        setSelectedRfp(response.data.proposals[0].rfp as RFP)
+      }
     } catch (error: any) {
       console.error('Failed to load proposals:', error)
       setError(error.message || 'Failed to load proposals. Please try again.')
@@ -111,6 +127,34 @@ export default function ProposalsPage() {
 
   const goBackToRfps = () => {
     router.push('/user/rfp/list')
+  }
+
+  const handleCompareProposals = async () => {
+    if (!rfpId) return
+
+    try {
+      setIsComparing(true)
+      const response = await rfpApi.compareProposals(rfpId)
+      setComparisonData(response.data)
+      setProposals(response.data.rankedProposals)
+      
+      // Preserve selectedRfp from ranked proposals if not set
+      if (!selectedRfp && response.data.rankedProposals.length > 0 && response.data.rankedProposals[0].rfp) {
+        setSelectedRfp(response.data.rankedProposals[0].rfp as RFP)
+      }
+      
+      setShowComparison(true)
+    } catch (error: any) {
+      console.error('Failed to compare proposals:', error)
+      setError(error.message || 'Failed to compare proposals')
+    } finally {
+      setIsComparing(false)
+    }
+  }
+
+  const handleShowAllProposals = () => {
+    setShowComparison(false)
+    loadProposals()
   }
 
   if (isLoading || loading) {
@@ -142,7 +186,7 @@ export default function ProposalsPage() {
         {selectedRfp && (
           <Card className="bg-muted/50">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-primary" />
                   <div>
@@ -152,9 +196,72 @@ export default function ProposalsPage() {
                     </p>
                   </div>
                 </div>
-                <Badge variant="secondary">
-                  {pagination.total} {pagination.total === 1 ? 'Proposal' : 'Proposals'}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary">
+                    {proposals.length} {proposals.length === 1 ? 'Proposal' : 'Proposals'}
+                  </Badge>
+                  {proposals.length > 1 && (
+                    <>
+                      {!showComparison ? (
+                        <Button 
+                          onClick={handleCompareProposals} 
+                          disabled={isComparing}
+                          className="gap-2"
+                        >
+                          {isComparing ? (
+                            <>
+                              <Sparkles className="h-4 w-4 animate-spin" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4" />
+                              Compare with AI
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button variant="outline" onClick={handleShowAllProposals}>
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Ranking
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {showComparison && comparisonData && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Award className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    AI Recommendation
+                  </h3>
+                  <p className="text-muted-foreground mb-4">{comparisonData.summary.recommendation}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg bg-background border">
+                      <p className="text-xs text-muted-foreground mb-1">Best Vendor</p>
+                      <p className="font-semibold">{comparisonData.summary.bestVendor}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background border">
+                      <p className="text-xs text-muted-foreground mb-1">Best Score</p>
+                      <p className="font-semibold">{comparisonData.summary.bestScore}/100</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background border">
+                      <p className="text-xs text-muted-foreground mb-1">Average Price</p>
+                      <p className="font-semibold">${Math.round(comparisonData.summary.averagePrice).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -191,21 +298,58 @@ export default function ProposalsPage() {
         ) : (
           <>
             <div className="space-y-4">
-              {proposals.map((proposal) => (
-                <Card key={proposal.id} className="hover:border-primary/50 transition-colors">
+              {proposals.map((proposal: any) => (
+                <Card 
+                  key={proposal.id} 
+                  className={`hover:border-primary/50 transition-colors ${
+                    showComparison && proposal.rank === 1 ? 'border-primary border-2' : ''
+                  }`}
+                >
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-3">
+                          {showComparison && proposal.rank && (
+                            <div className={`p-2 rounded-lg font-bold text-lg ${
+                              proposal.rank === 1 ? 'bg-primary text-primary-foreground' :
+                              proposal.rank === 2 ? 'bg-accent text-accent-foreground' :
+                              'bg-muted text-muted-foreground'
+                            }`}>
+                              #{proposal.rank}
+                            </div>
+                          )}
                           <div className="p-2 rounded-lg bg-accent/10">
                             <FileText className="h-5 w-5 text-accent" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-lg">{proposal.rfp?.title || 'RFP'}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-medium text-lg">{proposal.rfp?.title || 'RFP'}</h3>
+                              {showComparison && proposal.recommendation === 'BEST_CHOICE' && (
+                                <Badge className="bg-primary gap-1">
+                                  <Award className="h-3 w-3" />
+                                  Best Choice
+                                </Badge>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 mt-1 text-muted-foreground">
                               <Building2 className="h-4 w-4" />
                               <span>{proposal.vendor?.name || 'Unknown Vendor'}</span>
                             </div>
+                            {showComparison && proposal.rankingScore && (
+                              <div className="mt-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <TrendingUp className="h-3 w-3 text-primary" />
+                                  <span className="text-sm font-semibold text-primary">Score: {proposal.rankingScore}/100</span>
+                                </div>
+                                {proposal.rankingReasons && proposal.rankingReasons.length > 0 && (
+                                  <ul className="text-xs text-muted-foreground space-y-0.5 ml-5">
+                                    {proposal.rankingReasons.map((reason: string, idx: number) => (
+                                      <li key={idx}>• {reason}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Eye, EyeOff, Loader2, Users, Package } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export function LoginForm() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("user")
   const [error, setError] = useState("")
+  const {vendorLogin} = useAuth();
 
   const [userFormData, setUserFormData] = useState({
     email: "",
@@ -65,22 +67,17 @@ export function LoginForm() {
     setError("")
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vendors/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(vendorFormData),
-      })
+      const data = await vendorLogin(vendorFormData.contactEmail,vendorFormData.password)
 
-      const data = await response.json()
+      // const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed")
-      }
+      // if (!response.ok) {
+      //   throw new Error(data.message || "Login failed")
+      // }
 
-      localStorage.setItem("token", data.data.token)
+      // localStorage.setItem("token", data.data.token)
       localStorage.setItem("userType", "vendor")
+      // localStorage.setItem("vendor_data",JSON.stringify(data.data.vendor))
       router.push("/vendor/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")

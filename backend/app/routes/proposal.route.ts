@@ -12,4 +12,7 @@ router.get("/rfp/:rfpId", proposalController.validateGetProposals, proposalContr
 // Get a single proposal by ID
 router.get("/:proposalId", proposalController.getProposalById);
 
+// Compare proposals for an RFP with AI ranking
+router.get("/compare/:rfpId", proposalController.compareProposals);
+
 export default router;

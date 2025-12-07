@@ -34,13 +34,10 @@ export default function VendorDashboard() {
 
     try {
       setLoading(true)
-      const [statsResponse, rfpsResponse] = await Promise.all([
-        vendorApi.getVendorStats(vendor.id),
-        vendorApi.getVendorRFPs(vendor.id, { page: 1, limit: 3 })
-      ])
+      const statsResponse = await vendorApi.getVendorStats(vendor.id)
 
       setStats(statsResponse.data.stats)
-      setRecentRfps(rfpsResponse.data.rfps)
+      setRecentRfps(statsResponse.data.stats.recentRfps || [])
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     } finally {
