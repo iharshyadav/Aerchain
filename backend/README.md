@@ -2,6 +2,12 @@
 
 Express.js API server that handles RFP management, vendor communication, and proposal processing.
 
+**🚀 Hosted on DigitalOcean VPS Server**  
+Base URL: `https://157.245.106.211.sslip.io`
+
+**📖 API Documentation**  
+Postman Documentation: [View API Docs](https://documenter.getpostman.com/view/32672777/2sB3dQtp6H)
+
 ## What's inside
 
 - User and vendor authentication with JWT
@@ -76,9 +82,18 @@ The server runs on `http://localhost:5000` by default.
 
 ## Deployment
 
-This backend is configured to deploy on Vercel. The `vercel.json` file is already set up.
+This backend is deployed on a **DigitalOcean VPS server**.
 
-Make sure to add all environment variables in your Vercel dashboard before deploying.
+**Production URL:** `https://157.245.106.211.sslip.io`
+
+The server is configured with:
+- Node.js runtime environment
+- PM2 process manager for keeping the app running
+- Nginx reverse proxy for SSL and routing
+- PostgreSQL database
+- DigitalOcean Spaces for file storage
+
+Make sure all environment variables are properly configured on the VPS server.
 
 ## Database Schema
 
